@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            xmlns="http://javafx.com/javafx/26"
+            fx:controller="com.downloadmanager.controller.MainController"
+            prefWidth="900"
+            prefHeight="600"
+            style="-fx-background-color: #f4f6f8;">
+
+    <!-- ===================== TOP ===================== -->
+
+    <top>
+
+        <VBox spacing="5"
+              alignment="CENTER"
+              style="-fx-background-color: #202938;
+                     -fx-padding: 25 30 25 30;">
+
+            <Label text="DOWNLOAD MANAGER"
+                   style="-fx-font-size: 26px;
+                          -fx-font-weight: bold;
+                          -fx-text-fill: white;"/>
+
+            <Label text="Fast and simple file downloading"
+                   style="-fx-font-size: 13px;
+                          -fx-text-fill: #b9c2cf;"/>
+
+        </VBox>
+
+    </top>
+
+
+    <!-- ===================== CENTER ===================== -->
+
+    <center>
+
+        <VBox spacing="18"
+              style="-fx-padding: 25 35 20 35;">
+
+            <!-- DOWNLOAD LOCATION CARD -->
+
+            <VBox spacing="10"
+                  style="-fx-background-color: white;
+                         -fx-background-radius: 10;
+                         -fx-border-color: #e0e4e8;
+                         -fx-border-radius: 10;
+                         -fx-padding: 18;">
+
+                <Label text="Download Location"
+                       style="-fx-font-size: 15px;
+                              -fx-font-weight: bold;
+                              -fx-text-fill: #202938;"/>
+
+                <HBox spacing="12"
+                      alignment="CENTER_LEFT">
+
+                    <Label fx:id="locationLabel"
+                           text="Downloads"
+                           HBox.hgrow="ALWAYS"
+                           style="-fx-background-color: #f1f3f5;
+                                  -fx-background-radius: 6;
+                                  -fx-padding: 10;
+                                  -fx-text-fill: #555f6d;
+                                  -fx-font-size: 13px;"/>
+
+                    <Button text="Choose Location"
+                            onAction="#chooseLocation"
+                            style="-fx-background-color: #e9edf2;
+                                   -fx-text-fill: #202938;
+                                   -fx-font-weight: bold;
+                                   -fx-background-radius: 6;
+                                   -fx-padding: 10 16 10 16;
+                                   -fx-cursor: hand;"/>
+
+                </HBox>
+
+            </VBox>
+
+
+            <!-- URL CARD -->
+
+            <VBox spacing="10"
+                  style="-fx-background-color: white;
+                         -fx-background-radius: 10;
+                         -fx-border-color: #e0e4e8;
+                         -fx-border-radius: 10;
+                         -fx-padding: 18;">
+
+                <Label text="Download URL"
+                       style="-fx-font-size: 15px;
+                              -fx-font-weight: bold;
+                              -fx-text-fill: #202938;"/>
+
+                <HBox spacing="12"
+                      alignment="CENTER_LEFT">
+
+                    <TextField fx:id="urlField"
+                               promptText="Paste download URL here..."
+                               HBox.hgrow="ALWAYS"
+                               style="-fx-background-color: #f8f9fa;
+                                      -fx-border-color: #d9dee5;
+                                      -fx-border-radius: 6;
+                                      -fx-background-radius: 6;
+                                      -fx-padding: 11;
+                                      -fx-font-size: 13px;"/>
+
+                    <Button fx:id="addButton"
+                            text="ADD DOWNLOAD"
+                            onAction="#addDownload"
+                            style="-fx-background-color: #2878d0;
+                                   -fx-text-fill: white;
+                                   -fx-font-weight: bold;
+                                   -fx-background-radius: 6;
+                                   -fx-padding: 11 20 11 20;
+                                   -fx-cursor: hand;"/>
+
+                </HBox>
+
+            </VBox>
+
+
+            <!-- DOWNLOADS TITLE -->
+
+            <HBox alignment="CENTER_LEFT">
+
+                <Label text="Downloads"
+                       style="-fx-font-size: 18px;
+                              -fx-font-weight: bold;
+                              -fx-text-fill: #202938;"/>
+
+                <Label text="  •  Active downloads"
+                       style="-fx-font-size: 12px;
+                              -fx-text-fill: #7b8490;"/>
+
+            </HBox>
+
+
+            <!-- DOWNLOAD LIST -->
+
+            <ListView fx:id="downloadList"
+                      VBox.vgrow="ALWAYS"
+                      style="-fx-background-color: white;
+                             -fx-border-color: #e0e4e8;
+                             -fx-border-radius: 10;
+                             -fx-background-radius: 10;
+                             -fx-padding: 6;"/>
+
+        </VBox>
+
+    </center>
+
+
+    <!-- ===================== BOTTOM ===================== -->
+
+    <bottom>
+
+        <HBox spacing="10"
+              alignment="CENTER"
+              style="-fx-background-color: white;
+                     -fx-border-color: #e0e4e8;
+                     -fx-border-width: 1 0 0 0;
+                     -fx-padding: 12 20 12 20;">
+
+            <Button text="Downloads"
+                    style="-fx-background-color: #2878d0;
+                           -fx-text-fill: white;
+                           -fx-font-weight: bold;
+                           -fx-background-radius: 6;
+                           -fx-padding: 9 22 9 22;
+                           -fx-cursor: hand;"/>
+
+            <Button text="History"
+                    onAction="#openHistory"
+                    style="-fx-background-color: transparent;
+               -fx-text-fill: #555f6d;
+               -fx-font-weight: bold;
+               -fx-background-radius: 6;
+               -fx-padding: 9 22 9 22;
+               -fx-cursor: hand;"/>
+
+        </HBox>
+
+    </bottom>
+
+</BorderPane>
