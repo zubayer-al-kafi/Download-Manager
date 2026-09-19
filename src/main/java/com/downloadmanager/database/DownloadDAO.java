@@ -285,4 +285,38 @@ public class DownloadDAO {
                 String status
         );
     }
+    public interface ActiveDownloadConsumer {
+        void accept(int id, String fileName, String url, String filePath, String status);
+    }
+    public static void pauseActiveDownloadsOnShutdown() {
+        synchronized (DB_LOCK) {
+            String sql = "UPDATE downloads SET status = 'Paused' WHERE status = 'Downloading'";
+            try (Connection connection = Database.connect();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void loadActiveDownloads(ActiveDownloadConsumer consumer) throws SQLException {
+        synchronized (DB_LOCK) {
+            String sql = "SELECT * FROM downloads WHERE status IN ('Downloading', 'Paused') ORDER BY id ASC";
+            try (Connection connection = Database.connect();
+                 PreparedStatement statement = connection.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+
+                while (resultSet.next()) {
+                    consumer.accept(
+                            resultSet.getInt("id"),
+                            resultSet.getString("file_name"),
+                            resultSet.getString("url"),
+                            resultSet.getString("file_path"),
+                            resultSet.getString("status")
+                    );
+                }
+            }
+        }
+    }
 }

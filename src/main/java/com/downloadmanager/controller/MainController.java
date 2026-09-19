@@ -1,4 +1,5 @@
 package com.downloadmanager.controller;
+import java.sql.SQLException;
 import java.util.prefs.Preferences;
 
 import com.downloadmanager.DownloadManager;
@@ -120,6 +121,7 @@ public class MainController {
                     }
                 }
         );
+        loadSavedActiveDownloads();
     }
 
     @FXML
@@ -346,4 +348,39 @@ public class MainController {
 
         return "Unknown File";
     }
+
+    private void loadSavedActiveDownloads() {
+        try {
+            DownloadDAO.loadActiveDownloads((id, fileName, url, filePath, status) -> {
+                try {
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com.downloadmanager/DownloadItem.fxml"));
+                    Node downloadItem = loader.load();
+                    DownloadItemController controller = loader.getController();
+
+                    controller.setDownloadInfo(fileName, url);
+                    controller.setDatabaseId(id);
+
+                    // Set up actions
+                    controller.setRemoveFromListAction(() -> downloadList.getItems().remove(downloadItem));
+                    controller.setDownloadAgainAction(() -> {
+                        downloadManager.startDownload(controller, fileName, url, downloadLocation);
+                    });
+                    controller.setResumeAction(() -> {
+                        downloadManager.startDownload(controller, fileName, url, downloadLocation);
+                    });
+
+                    // Pass the url variable as the second argument
+                    controller.restoreAsPaused(downloadLocation, url);
+
+                    downloadList.getItems().add(downloadItem);
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 }

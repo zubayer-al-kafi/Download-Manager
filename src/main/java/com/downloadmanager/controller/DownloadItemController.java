@@ -8,6 +8,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.VBox;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.util.Optional;
 
 import java.awt.Desktop;
 import java.io.InputStream;
@@ -18,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -66,6 +70,12 @@ public class DownloadItemController {
     private volatile boolean cancelled = false;
     private long lastTime;
     private long lastBytes;
+    private boolean isRestored = false;
+    private Runnable resumeAction;
+
+    public void setResumeAction(Runnable action) {
+        this.resumeAction = action;
+    }
 
 
     private Path filePath;
@@ -76,9 +86,9 @@ public class DownloadItemController {
     }
     @FXML
     private void downloadAgain() {
-
         cancelled = false;
         paused = false;
+        isRestored = false; // Reset flag so it knows a new thread is starting
 
         progressBar.setProgress(0);
         percentageLabel.setText("Downloading");
@@ -87,6 +97,8 @@ public class DownloadItemController {
         timeLabel.setText("Time remaining: --");
 
         pauseButton.setDisable(false);
+        pauseButton.setText("Pause"); // Reset the button text
+
         cancelButton.setDisable(false);
         deleteButton.setDisable(true);
         showFolderButton.setDisable(true);
@@ -265,183 +277,124 @@ public class DownloadItemController {
                 secs
         );
     }
-    public void download(
-            String fileName,
-            String url,
-            Path downloadFolder) {
+    public void download(String fileName, String url, Path downloadFolder) {
 
         try {
+            Files.createDirectories(downloadFolder);
+            filePath = downloadFolder.resolve(fileName);
 
-            HttpClient client =
-                    HttpClient.newHttpClient();
+            // 1. Check if the file already exists and get its size
+            long existingSize = 0;
+            if (Files.exists(filePath)) {
+                existingSize = Files.size(filePath);
+            }
 
-            HttpRequest request =
-                    HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .GET()
-                            .build();
+            HttpClient client = HttpClient.newHttpClient();
 
-            HttpResponse<InputStream> response =
-                    client.send(
-                            request,
-                            HttpResponse.BodyHandlers
-                                    .ofInputStream()
-                    );
+            // 2. Build the request and append the Range header if we have partial data
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .GET();
 
+            if (existingSize > 0) {
+                requestBuilder.header("Range", "bytes=" + existingSize + "-");
+            }
 
-            if (response.statusCode() < 200 ||
-                    response.statusCode() >= 300) {
+            HttpRequest request = requestBuilder.build();
 
-                DownloadDAO.updateStatus(
-                        databaseId,
-                        "Failed"
-                );
+            HttpResponse<InputStream> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofInputStream()
+            );
 
+            // 3. Handle 416 Range Not Satisfiable (file is already fully downloaded)
+            if (response.statusCode() == 416) {
                 Platform.runLater(() -> {
-
-                    percentageLabel.setText(
-                            "Failed"
-                    );
-
+                    progressBar.setProgress(1.0);
+                    percentageLabel.setText("Completed");
                     pauseButton.setDisable(true);
                     cancelButton.setDisable(true);
-
-                    downloadAgainButton.setDisable(false);
+                    showFolderButton.setDisable(false);
+                    deleteButton.setDisable(false);
+                    DownloadDAO.updateStatus(databaseId, "Completed");
                 });
-
                 return;
             }
 
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                DownloadDAO.updateStatus(databaseId, "Failed");
+                Platform.runLater(() -> {
+                    percentageLabel.setText("Failed");
+                    pauseButton.setDisable(true);
+                    cancelButton.setDisable(true);
+                    downloadAgainButton.setDisable(false);
+                });
+                return;
+            }
 
-            long totalSize =
-                    response.headers()
-                            .firstValueAsLong(
-                                    "Content-Length"
-                            )
-                            .orElse(-1);
+            // 4. Check if the server accepted our Range request
+            boolean append = (response.statusCode() == 206); // 206 = Partial Content
 
+            // If the server rejected the Range header (returned 200 OK instead of 206), we must start over
+            if (!append && existingSize > 0) {
+                existingSize = 0;
+            }
 
-            Files.createDirectories(
-                    downloadFolder
-            );
+            long serverContentLength = response.headers().firstValueAsLong("Content-Length").orElse(-1);
 
+            // Calculate the true total size and starting bytes
+            long totalSize = (serverContentLength > 0 && append) ? (existingSize + serverContentLength) : serverContentLength;
+            long downloaded = append ? existingSize : 0;
 
-            filePath =
-                    downloadFolder.resolve(
-                            fileName
-                    );
+            long downloadStartTime = System.currentTimeMillis();
+            long lastUpdateTime = downloadStartTime;
+            long lastUpdateBytes = downloaded;
 
-            long downloaded = 0;
-
-            long downloadStartTime =
-                    System.currentTimeMillis();
-
-            long lastUpdateTime =
-                    downloadStartTime;
-
-            long lastUpdateBytes = 0;
-
+            // 5. Open stream in APPEND mode if we are resuming, else CREATE mode
             try (
-                    InputStream input =
-                            response.body();
-
-                    OutputStream output =
-                            Files.newOutputStream(
-                                    filePath
-                            )
+                    InputStream input = response.body();
+                    OutputStream output = Files.newOutputStream(
+                            filePath,
+                            append ? java.nio.file.StandardOpenOption.APPEND : java.nio.file.StandardOpenOption.CREATE
+                    )
             ) {
-
-                byte[] buffer =
-                        new byte[8192];
-
+                byte[] buffer = new byte[8192];
                 int bytesRead;
 
-
-                while (
-                        (bytesRead =
-                                input.read(buffer)) != -1
-                ) {
-
+                while ((bytesRead = input.read(buffer)) != -1) {
                     synchronized (this) {
-
-                        while (
-                                paused &&
-                                        !cancelled
-                        ) {
-
+                        while (paused && !cancelled) {
                             wait();
                         }
                     }
-
 
                     if (cancelled) {
                         break;
                     }
 
-
-                    output.write(
-                            buffer,
-                            0,
-                            bytesRead
-                    );
-
-
+                    output.write(buffer, 0, bytesRead);
                     downloaded += bytesRead;
 
                     if (totalSize > 0) {
-
-                        double progress =
-                                (double) downloaded / totalSize;
-
-                        long currentTime =
-                                System.currentTimeMillis();
-
-                        long elapsed =
-                                currentTime - lastUpdateTime;
+                        double progress = (double) downloaded / totalSize;
+                        long currentTime = System.currentTimeMillis();
+                        long elapsed = currentTime - lastUpdateTime;
 
                         // Update the speed display every 500 ms
                         if (elapsed >= 500) {
-
-                            long bytesSinceUpdate =
-                                    downloaded - lastUpdateBytes;
-
-                            double speed =
-                                    bytesSinceUpdate /
-                                            (elapsed / 1000.0);
-
-                            long remainingBytes =
-                                    totalSize - downloaded;
-
-                            double remainingSeconds =
-                                    speed > 0
-                                            ? remainingBytes / speed
-                                            : 0;
+                            long bytesSinceUpdate = downloaded - lastUpdateBytes;
+                            double speed = bytesSinceUpdate / (elapsed / 1000.0);
+                            long remainingBytes = totalSize - downloaded;
+                            double remainingSeconds = speed > 0 ? remainingBytes / speed : 0;
 
                             lastUpdateTime = currentTime;
                             lastUpdateBytes = downloaded;
 
                             Platform.runLater(() -> {
-
-                                progressBar.setProgress(
-                                        progress
-                                );
-
-                                percentageLabel.setText(
-                                        String.format(
-                                                "%.0f%%",
-                                                progress * 100
-                                        )
-                                );
-
-                                speedLabel.setText(
-                                        "Speed: " +
-                                                formatSpeed(speed)
-                                );
-
-                                timeLabel.setText(
-                                        "Time remaining: " +
-                                                formatTime(remainingSeconds)
-                                );
+                                progressBar.setProgress(progress);
+                                percentageLabel.setText(String.format("%.0f%%", progress * 100));
+                                speedLabel.setText("Speed: " + formatSpeed(speed));
+                                timeLabel.setText("Time remaining: " + formatTime(remainingSeconds));
                             });
                         }
                     }
@@ -449,126 +402,62 @@ public class DownloadItemController {
             }
 
             if (!cancelled && totalSize > 0) {
-
-                long totalTime =
-                        System.currentTimeMillis()
-                                - downloadStartTime;
-
-                double averageSpeed =
-                        totalTime > 0
-                                ? downloaded /
-                                (totalTime / 1000.0)
-                                : 0;
+                long totalTime = System.currentTimeMillis() - downloadStartTime;
+                double averageSpeed = totalTime > 0 ? (downloaded - (append ? existingSize : 0)) / (totalTime / 1000.0) : 0;
 
                 Platform.runLater(() -> {
-
                     progressBar.setProgress(1.0);
-
-                    percentageLabel.setText(
-                            "100%"
-                    );
-
-                    speedLabel.setText(
-                            "Speed: " +
-                                    formatSpeed(averageSpeed)
-                    );
-
-                    timeLabel.setText(
-                            "Time remaining: 0s"
-                    );
+                    percentageLabel.setText("Completed");
+                    speedLabel.setText("Speed: " + formatSpeed(averageSpeed));
+                    timeLabel.setText("Time remaining: 0s");
+                    DownloadDAO.updateStatus(databaseId, "Completed");
+                    pauseButton.setDisable(true);
+                    cancelButton.setDisable(true);
+                    showFolderButton.setDisable(false);
+                    deleteButton.setDisable(false);
                 });
             }
-
             // Download cancelled
             if (cancelled) {
 
+                // The output stream is now closed, so it is safe to delete the file without locking errors
+                try {
+                    if (filePath != null) {
+                        Files.deleteIfExists(filePath);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 Platform.runLater(() -> {
-
-                    percentageLabel.setText(
-                            "Cancelled"
-                    );
-
+                    percentageLabel.setText("Cancelled");
                     pauseButton.setDisable(true);
                     cancelButton.setDisable(true);
+                    showFolderButton.setDisable(true); // Keep disabled since file is gone
 
-                    // Allow user to delete partial file
+                    // Allow user to remove the item from the list or start fresh
                     deleteButton.setDisable(false);
-
-                    // Allow user to download again
                     downloadAgainButton.setDisable(false);
 
-                    // Allow user to open the containing folder
-                    showFolderButton.setDisable(false);
-
-                    DownloadDAO.updateStatus(
-                            databaseId,
-                            "Cancelled"
-                    );
-
+                    DownloadDAO.updateStatus(databaseId, "Cancelled");
                 });
-
-                return;
             }
 
-
-            // Download completed
-            Platform.runLater(() -> {
-
-                progressBar.setProgress(1.0);
-
-                percentageLabel.setText(
-                        "Completed"
-                );
-                DownloadDAO.updateStatus(
-                        databaseId,
-                        "Completed"
-                );
-
-                pauseButton.setDisable(true);
-                cancelButton.setDisable(true);
-
-                // Enable folder button
-                showFolderButton.setDisable(false);
-                deleteButton.setDisable(false);
-
-            });
-
-
         } catch (InterruptedException e) {
-
             Thread.currentThread().interrupt();
-
-            Platform.runLater(() ->
-                    percentageLabel.setText(
-                            "Interrupted"
-                    )
-            );
-
+            Platform.runLater(() -> percentageLabel.setText("Interrupted"));
 
         } catch (Exception e) {
-
             e.printStackTrace();
-
-            DownloadDAO.updateStatus(
-                    databaseId,
-                    "Failed"
-            );
-
+            DownloadDAO.updateStatus(databaseId, "Failed");
             Platform.runLater(() -> {
-
-                percentageLabel.setText(
-                        "Failed"
-                );
-
+                percentageLabel.setText("Failed");
                 pauseButton.setDisable(true);
                 cancelButton.setDisable(true);
-
                 downloadAgainButton.setDisable(false);
             });
         }
     }
-
-
     // ==========================================
     // OPEN FILE
     // ==========================================
@@ -633,30 +522,26 @@ public class DownloadItemController {
 
     @FXML
     private void pauseDownload() {
-
         synchronized (this) {
-
             paused = !paused;
 
-
             if (paused) {
-
-                pauseButton.setText(
-                        "Resume"
-                );
-
-                percentageLabel.setText(
-                        "Paused"
-                );
-
-
+                pauseButton.setText("Resume");
+                percentageLabel.setText("Paused");
             } else {
+                pauseButton.setText("Pause");
+                percentageLabel.setText("Resuming...");
 
-                pauseButton.setText(
-                        "Pause"
-                );
-
-                notify();
+                // If it was restored from the database, start a new thread
+                if (isRestored) {
+                    isRestored = false;
+                    if (resumeAction != null) {
+                        resumeAction.run();
+                    }
+                } else {
+                    // If it was just paused during this session, wake the sleeping thread
+                    notify();
+                }
             }
         }
     }
@@ -668,22 +553,92 @@ public class DownloadItemController {
 
     @FXML
     private void cancelDownload() {
+        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmation.setTitle("Cancel Download");
+        confirmation.setHeaderText("Cancel this download?");
+        confirmation.setContentText("This will stop the download and permanently delete the partial file.");
 
-        cancelled = true;
+        Optional<ButtonType> result = confirmation.showAndWait();
 
-        synchronized (this) {
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            cancelled = true;
 
-            paused = false;
-            notify();
+            // Immediately disable buttons to prevent double-clicks
+            pauseButton.setDisable(true);
+            cancelButton.setDisable(true);
+            showFolderButton.setDisable(true); // Disable because file will be deleted
+
+            if (isRestored) {
+                // If it was restored but never resumed, there is no background thread running.
+                // We can safely delete the file directly right now.
+                try {
+                    if (filePath != null) {
+                        Files.deleteIfExists(filePath);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                percentageLabel.setText("Cancelled");
+                deleteButton.setDisable(false);
+                downloadAgainButton.setDisable(false);
+                DownloadDAO.updateStatus(databaseId, "Cancelled");
+            } else {
+                // If a background thread is running, wake it up so it can break its loop.
+                // It will close the stream to release the file lock, and then delete the file.
+                synchronized (this) {
+                    paused = false;
+                    notify();
+                }
+            }
         }
+    }
+    public void restoreAsPaused(Path downloadFolder, String url) {
+        this.paused = true;
+        this.isRestored = true;
+        this.filePath = downloadFolder.resolve(fileNameLabel.getText());
 
-        pauseButton.setDisable(true);
-        cancelButton.setDisable(true);
+        pauseButton.setText("Resume");
+        speedLabel.setText("Speed: --");
+        timeLabel.setText("Time remaining: --");
 
-        // Enable delete and download again
+        cancelButton.setDisable(false);
         deleteButton.setDisable(false);
-        downloadAgainButton.setDisable(false);
+        showFolderButton.setDisable(false);
 
-        percentageLabel.setText("Cancelled");
+        // Fetch file size asynchronously so we don't freeze the UI
+        CompletableFuture.runAsync(() -> {
+            try {
+                long existingSize = Files.exists(filePath) ? Files.size(filePath) : 0;
+
+                HttpClient client = HttpClient.newHttpClient();
+
+                // Use a HEAD request to get file size without downloading the body
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                        .build();
+
+                HttpResponse<Void> response = client.send(
+                        request,
+                        HttpResponse.BodyHandlers.discarding()
+                );
+
+                long totalSize = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+
+                Platform.runLater(() -> {
+                    if (totalSize > 0) {
+                        double progress = (double) existingSize / totalSize;
+                        progressBar.setProgress(progress);
+                        percentageLabel.setText(String.format("Paused (%.0f%%)", progress * 100));
+                    } else {
+                        percentageLabel.setText("Paused");
+                    }
+                });
+
+            } catch (Exception e) {
+                // If the network check fails (e.g., offline), fallback to standard text
+                Platform.runLater(() -> percentageLabel.setText("Paused"));
+            }
+        });
     }
 }
