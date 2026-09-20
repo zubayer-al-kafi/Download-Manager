@@ -10,142 +10,29 @@
       xmlns:fx="http://javafx.com/fxml/1"
       xmlns="http://javafx.com/javafx/26"
       fx:controller="com.downloadmanager.controller.DownloadItemController"
-      spacing="10"
-      style="-fx-background-color: white;
-             -fx-background-radius: 10;
-             -fx-border-color: #e0e4e8;
-             -fx-border-radius: 10;
-             -fx-padding: 16;">
+      spacing="12"
+      styleClass="card"
+      stylesheets="@style.css">
 
-    <!-- FILE NAME + PERCENTAGE -->
-
-    <HBox spacing="10"
-          alignment="CENTER_LEFT">
-
-        <Label fx:id="fileNameLabel"
-               text="example.zip"
-               HBox.hgrow="ALWAYS"
-               style="-fx-font-size: 16px;
-                      -fx-font-weight: bold;
-                      -fx-text-fill: #202938;"/>
-
-        <Label fx:id="percentageLabel"
-               text="0%"
-               style="-fx-font-size: 13px;
-                      -fx-font-weight: bold;
-                      -fx-text-fill: #2878d0;"/>
-
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label fx:id="fileNameLabel" text="example.zip" HBox.hgrow="ALWAYS" styleClass="item-title"/>
+        <Label fx:id="percentageLabel" text="0%" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #3b82f6;"/>
     </HBox>
 
+    <Label fx:id="urlLabel" text="https://example.com/example.zip" maxWidth="Infinity" styleClass="text-muted"/>
 
-    <!-- URL -->
+    <ProgressBar fx:id="progressBar" progress="0" maxWidth="Infinity" styleClass="progress-bar"/>
 
-    <Label fx:id="urlLabel"
-           text="https://example.com/example.zip"
-           maxWidth="Infinity"
-           style="-fx-font-size: 12px;
-                  -fx-text-fill: #7b8490;"/>
-
-
-    <!-- PROGRESS BAR -->
-
-    <ProgressBar fx:id="progressBar"
-                 progress="0"
-                 maxWidth="Infinity"
-                 prefHeight="10"
-                 style="-fx-accent: #2878d0;"/>
-
-
-    <!-- DOWNLOAD INFORMATION -->
-
-    <HBox spacing="20"
-          alignment="CENTER_LEFT">
-
-        <Label fx:id="speedLabel"
-               text="Speed: 0 KB/s"
-               style="-fx-font-size: 12px;
-                      -fx-text-fill: #7b8490;"/>
-
-        <Label fx:id="timeLabel"
-               text="Time remaining: --"
-               style="-fx-font-size: 12px;
-                      -fx-text-fill: #7b8490;"/>
-
+    <HBox spacing="20" alignment="CENTER_LEFT">
+        <Label fx:id="speedLabel" text="Speed: 0 KB/s" styleClass="text-muted"/>
+        <Label fx:id="timeLabel" text="Time remaining: --" styleClass="text-muted"/>
     </HBox>
 
-
-    <!-- BUTTONS -->
-
-    <HBox spacing="8"
-          alignment="CENTER_RIGHT">
-
-        <!-- Show in folder -->
-
-        <Button fx:id="showFolderButton"
-                text="📁"
-                onAction="#showInFolder"
-                disable="true"
-                prefWidth="42"
-                style="-fx-background-color: #eef2f6;
-                       -fx-text-fill: #374151;
-                       -fx-font-size: 14px;
-                       -fx-background-radius: 6;
-                       -fx-cursor: hand;"/>
-
-
-        <!-- Delete -->
-
-        <Button fx:id="deleteButton"
-                text="Delete"
-                onAction="#showDeleteMenu"
-                disable="true"
-                style="-fx-background-color: #f1f3f5;
-                       -fx-text-fill: #555f6d;
-                       -fx-font-weight: bold;
-                       -fx-background-radius: 6;
-                       -fx-padding: 8 14 8 14;
-                       -fx-cursor: hand;"/>
-
-
-        <!-- Download Again -->
-
-        <Button fx:id="downloadAgainButton"
-                text="Download Again"
-                onAction="#downloadAgain"
-                disable="true"
-                style="-fx-background-color: #e8f2ff;
-                       -fx-text-fill: #2878d0;
-                       -fx-font-weight: bold;
-                       -fx-background-radius: 6;
-                       -fx-padding: 8 14 8 14;
-                       -fx-cursor: hand;"/>
-
-
-        <!-- Pause -->
-
-        <Button fx:id="pauseButton"
-                text="Pause"
-                onAction="#pauseDownload"
-                style="-fx-background-color: #eef2f6;
-                       -fx-text-fill: #374151;
-                       -fx-font-weight: bold;
-                       -fx-background-radius: 6;
-                       -fx-padding: 8 14 8 14;
-                       -fx-cursor: hand;"/>
-
-
-        <!-- Cancel -->
-
-        <Button fx:id="cancelButton"
-                text="Cancel"
-                onAction="#cancelDownload"
-                style="-fx-background-color: #fff0f0;
-                       -fx-text-fill: #c0392b;
-                       -fx-font-weight: bold;
-                       -fx-background-radius: 6;
-                       -fx-padding: 8 14 8 14;
-                       -fx-cursor: hand;"/>
-
+    <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 4 0 0 0;">
+        <Button fx:id="showFolderButton" text="📁" onAction="#showInFolder" disable="true" styleClass="btn-secondary, btn-icon"/>
+        <Button fx:id="deleteButton" text="Delete" onAction="#showDeleteMenu" disable="true" styleClass="btn-secondary"/>
+        <Button fx:id="downloadAgainButton" text="Download Again" onAction="#downloadAgain" disable="true" styleClass="btn-secondary" style="-fx-text-fill: #3b82f6;"/>
+        <Button fx:id="pauseButton" text="Pause" onAction="#pauseDownload" styleClass="btn-secondary"/>
+        <Button fx:id="cancelButton" text="Cancel" onAction="#cancelDownload" styleClass="btn-danger-outline"/>
     </HBox>
-
 </VBox>

@@ -8,40 +8,15 @@
       xmlns="http://javafx.com/javafx/26"
       fx:controller="com.downloadmanager.controller.HistoryItemController"
       spacing="8"
-      style="-fx-background-color: white;
-             -fx-background-radius: 10;
-             -fx-border-color: #e0e4e8;
-             -fx-border-radius: 10;
-             -fx-padding: 15;">
+      styleClass="card"
+      stylesheets="@style.css">
 
-    <HBox spacing="10"
-          alignment="CENTER_LEFT">
-
-        <Label fx:id="fileNameLabel"
-               text="example.zip"
-               style="-fx-font-size: 16px;
-                      -fx-font-weight: bold;
-                      -fx-text-fill: #202938;"
-               HBox.hgrow="ALWAYS"/>
-
-        <Label fx:id="statusLabel"
-               text="Completed"
-               style="-fx-font-size: 13px;
-                      -fx-font-weight: bold;
-                      -fx-text-fill: #2878d0;"/>
-
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label fx:id="fileNameLabel" text="example.zip" styleClass="item-title" HBox.hgrow="ALWAYS"/>
+        <Label fx:id="statusLabel" text="Completed" style="-fx-font-weight: bold; -fx-text-fill: #3b82f6;"/>
     </HBox>
 
-    <Label fx:id="urlLabel"
-           text="https://example.com/file.zip"
-           maxWidth="Infinity"
-           style="-fx-font-size: 12px;
-                  -fx-text-fill: #7b8490;"/>
-
-    <Label fx:id="pathLabel"
-           text="E:\Downloads\file.zip"
-           maxWidth="Infinity"
-           style="-fx-font-size: 12px;
-                  -fx-text-fill: #9aa1aa;"/>
+    <Label fx:id="urlLabel" text="https://example.com/file.zip" maxWidth="Infinity" styleClass="text-muted"/>
+    <Label fx:id="pathLabel" text="E:\Downloads\file.zip" maxWidth="Infinity" styleClass="text-muted"/>
 
 </VBox>

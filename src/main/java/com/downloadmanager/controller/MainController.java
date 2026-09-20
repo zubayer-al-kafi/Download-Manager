@@ -1,5 +1,6 @@
 package com.downloadmanager.controller;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.prefs.Preferences;
 
 import com.downloadmanager.DownloadManager;
@@ -7,12 +8,11 @@ import com.downloadmanager.database.DownloadDAO;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.Parent;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 
@@ -20,14 +20,16 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Node;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.scene.input.Clipboard;
+import javafx.util.Duration;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class MainController {
 
+    private String lastClipboardContent = "";
     @FXML
     private TextField urlField;
 
@@ -41,6 +43,46 @@ public class MainController {
     private final DownloadManager downloadManager =
             new DownloadManager();
 
+    private void setupClipboardMonitoring() {
+        Timeline clipboardTimeline = new Timeline(
+                new KeyFrame(Duration.seconds(1), event -> {
+
+                    Clipboard clipboard = Clipboard.getSystemClipboard();
+
+                    if (clipboard.hasString()) {
+                        String content = clipboard.getString();
+
+                        // If the content is new and exists
+                        if (content != null && !content.equals(lastClipboardContent)) {
+                            lastClipboardContent = content;
+
+                            // Check if it's a URL
+                            if (content.startsWith("http://") || content.startsWith("https://")) {
+
+                                // Optional: Only auto-paste if it looks like a file
+                                if (isDownloadableFile(content)) {
+                                    urlField.setText(content);
+                                    urlField.requestFocus();
+                                    urlField.positionCaret(content.length());
+                                }
+                            }
+                        }
+                    }
+                })
+        );
+
+        clipboardTimeline.setCycleCount(Timeline.INDEFINITE);
+        clipboardTimeline.play();
+    }
+
+    private boolean isDownloadableFile(String url) {
+        // A list of common file extensions to monitor for, PLUS youtube links
+        if (url.contains("youtube.com/watch") || url.contains("youtu.be/")) {
+            return true;
+        }
+        String fileRegex = "(?i).*\\.(zip|rar|7z|exe|msi|mp4|mkv|avi|pdf|iso|jpg|jpeg|png|mp3|dat)$";
+        return url.matches(fileRegex);
+    }
 
     // Default download location
     private Path downloadLocation;
@@ -122,6 +164,7 @@ public class MainController {
                 }
         );
         loadSavedActiveDownloads();
+        setupClipboardMonitoring();
     }
 
     @FXML
@@ -220,22 +263,173 @@ public class MainController {
     // ADD DOWNLOAD
     // --------------------------------------------------
 
+    // --------------------------------------------------
+    // ADD DOWNLOAD
+    // --------------------------------------------------
+
     @FXML
     private void addDownload() {
 
-        String url =
-                urlField.getText().trim();
-
+        String url = urlField.getText().trim();
 
         // Don't add empty URL
         if (url.isEmpty()) {
             return;
         }
 
+        // ==========================================
+// YOUTUBE QUALITY SELECTOR (MODERN DARK THEME)
+// ==========================================
+
+        String selectedQuality = "Best Quality (Default)";
+
+        boolean isYouTube = url.contains("youtube.com") || url.contains("youtu.be");
+
+        if (isYouTube) {
+
+            javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+            dialog.setTitle("Download Options");
+
+            // Remove the ugly default dialog header space
+            dialog.getDialogPane().setHeaderText(null);
+            dialog.getDialogPane().setGraphic(null);
+
+            // Style the main Dialog Window
+            dialog.getDialogPane().setStyle(
+                    "-fx-background-color: #18181b;" + // Dark sleek background
+                            "-fx-font-family: 'Segoe UI', Arial, sans-serif;"
+            );
+
+            // ------------------------------------------
+            // Header & Subtitle
+            // ------------------------------------------
+            javafx.scene.control.Label titleLabel = new javafx.scene.control.Label("YouTube Media");
+            titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 22px; -fx-font-weight: bold;");
+
+            javafx.scene.control.Label subtitleLabel = new javafx.scene.control.Label("Select your preferred format and resolution:");
+            subtitleLabel.setStyle("-fx-text-fill: #a1a1aa; -fx-font-size: 13px; -fx-padding: 0 0 10 0;");
+
+            // ------------------------------------------
+            // ComboBox (Fully Styled in Java)
+            // ------------------------------------------
+            javafx.scene.control.ComboBox<String> qualityBox = new javafx.scene.control.ComboBox<>();
+            qualityBox.getItems().addAll(
+                    "Best Quality (Default)",
+                    "Audio Only (MP3)",
+                    "1080p",
+                    "720p",
+                    "480p"
+            );
+            qualityBox.setValue("Best Quality (Default)");
+            qualityBox.setPrefWidth(350);
+
+            // Style the ComboBox main button
+            qualityBox.setStyle(
+                    "-fx-background-color: #27272a;" +
+                            "-fx-border-color: #3f3f46;" +
+                            "-fx-border-radius: 6px;" +
+                            "-fx-background-radius: 6px;" +
+                            "-fx-padding: 4px;"
+            );
+
+            // Pro-Trick: Style the actual dropdown text to fix the "faded" bug
+            qualityBox.setButtonCell(new javafx.scene.control.ListCell<String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item);
+                        setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-background-color: transparent;");
+                    }
+                }
+            });
+
+            // Pro-Trick: Style the popup list items and add hover effects
+            qualityBox.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("-fx-background-color: #27272a;");
+                    } else {
+                        setText(item);
+                        setStyle("-fx-background-color: #27272a; -fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-padding: 10px;");
+
+                        // Hover effects for dropdown items
+                        setOnMouseEntered(e -> setStyle("-fx-background-color: #3f3f46; -fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-padding: 10px; -fx-cursor: hand;"));
+                        setOnMouseExited(e -> setStyle("-fx-background-color: #27272a; -fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-padding: 10px;"));
+                    }
+                }
+            });
+
+            // ------------------------------------------
+            // Layout Container
+            // ------------------------------------------
+            javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(8, titleLabel, subtitleLabel, qualityBox);
+            content.setPadding(new javafx.geometry.Insets(25, 30, 20, 30));
+
+            // Add layout to Dialog
+            dialog.getDialogPane().setContent(content);
+
+            // ------------------------------------------
+            // Dialog Buttons
+            // ------------------------------------------
+            javafx.scene.control.ButtonType downloadButtonType = new javafx.scene.control.ButtonType("Download", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+            javafx.scene.control.ButtonType cancelButtonType = new javafx.scene.control.ButtonType("Cancel", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+
+            dialog.getDialogPane().getButtonTypes().addAll(downloadButtonType, cancelButtonType);
+
+            // Style the Primary "Download" Button
+            javafx.scene.Node downloadButton = dialog.getDialogPane().lookupButton(downloadButtonType);
+            downloadButton.setStyle(
+                    "-fx-background-color: #3b82f6;" + // Modern Blue
+                            "-fx-text-fill: white;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-padding: 8px 20px;" +
+                            "-fx-background-radius: 6px;" +
+                            "-fx-cursor: hand;"
+            );
+
+            // Style the "Cancel" Button
+            javafx.scene.Node cancelButton = dialog.getDialogPane().lookupButton(cancelButtonType);
+            cancelButton.setStyle(
+                    "-fx-background-color: transparent;" +
+                            "-fx-text-fill: #a1a1aa;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-padding: 8px 15px;" +
+                            "-fx-cursor: hand;"
+            );
+
+            // ------------------------------------------
+            // Handle Result
+            // ------------------------------------------
+            dialog.setResultConverter(button -> {
+                if (button == downloadButtonType) {
+                    return qualityBox.getValue();
+                }
+                return null;
+            });
+
+            java.util.Optional<String> result = dialog.showAndWait();
+
+            // User cancelled
+            if (result.isEmpty()) {
+                return;
+            }
+
+            selectedQuality = result.get();
+        }
+
+        // ==========================================
+        // CREATE DOWNLOAD ITEM
+        // ==========================================
 
         try {
 
-            // Load download item
             FXMLLoader loader =
                     new FXMLLoader(
                             getClass().getResource(
@@ -243,72 +437,117 @@ public class MainController {
                             )
                     );
 
-
             Node downloadItem =
                     loader.load();
 
-
-            // Get item controller
+            // Get controller
             DownloadItemController controller =
                     loader.getController();
 
+            // Pass selected YouTube quality
+            controller.setSelectedQuality(
+                    selectedQuality
+            );
 
-            // Get file name
-            String fileName =
-                    getFileName(url);
+            // ==========================================
+            // GET FILE NAME
+            // ==========================================
+
+            var ref = new Object() {
+                String fileName =
+                        getFileName(url);
+            };
+
+            if (isYouTube) {
+
+                ref.fileName =
+                        "YouTube Media Processing...";
+            }
+
+            // ==========================================
+            // FILE PATH
+            // ==========================================
+
             String filePath =
                     downloadLocation
-                            .resolve(fileName)
+                            .resolve(ref.fileName)
                             .toString();
 
+            // ==========================================
+            // DISPLAY DOWNLOAD INFORMATION
+            // ==========================================
 
-            // Display information
             controller.setDownloadInfo(
-                    fileName,
+                    ref.fileName,
                     url
             );
 
+            // ==========================================
+            // SAVE TO DATABASE
+            // ==========================================
+
             int databaseId =
                     DownloadDAO.addDownload(
-                            fileName,
+                            ref.fileName,
                             url,
                             filePath,
                             "Downloading"
                     );
-            controller.setDatabaseId(databaseId);
-            // Add item to ListView
-            downloadList.getItems().add(
-                    downloadItem
-            );
-            controller.setRemoveFromListAction(() ->
-                    downloadList.getItems().remove(
-                            downloadItem
-                    )
+
+            controller.setDatabaseId(
+                    databaseId
             );
 
-            controller.setDownloadAgainAction(() -> {
+            // ==========================================
+            // ADD TO LIST
+            // ==========================================
 
-                // Start the download again
-                downloadManager.startDownload(
-                        controller,
-                        fileName,
-                        url,
-                        downloadLocation
-                );
+            downloadList
+                    .getItems()
+                    .add(downloadItem);
 
-            });
-            // Start download
+            // ==========================================
+            // REMOVE FROM LIST CALLBACK
+            // ==========================================
+
+            controller.setRemoveFromListAction(
+                    () -> downloadList
+                            .getItems()
+                            .remove(downloadItem)
+            );
+
+            // ==========================================
+            // DOWNLOAD AGAIN CALLBACK
+            // ==========================================
+
+            controller.setDownloadAgainAction(
+                    () -> {
+
+                        downloadManager.startDownload(
+                                controller,
+                                ref.fileName,
+                                url,
+                                downloadLocation
+                        );
+                    }
+            );
+
+            // ==========================================
+            // START DOWNLOAD
+            // ==========================================
+
             downloadManager.startDownload(
                     controller,
-                    fileName,
+                    ref.fileName,
                     url,
                     downloadLocation
             );
 
+            // ==========================================
+            // CLEAR URL FIELD
+            // ==========================================
 
-            // Clear URL field
             urlField.clear();
-
 
         } catch (IOException e) {
 
