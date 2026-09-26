@@ -70,7 +70,6 @@
             </HBox>
 
             <!-- DOWNLOAD LIST -->
-            <!-- DOWNLOAD LIST -->
             <ListView fx:id="downloadList" VBox.vgrow="ALWAYS" styleClass="list-view">
                 <placeholder>
                     <Label text="No active downloads. Paste a link or use the extension to start!" styleClass="text-muted" style="-fx-font-size: 14px;"/>
@@ -84,6 +83,7 @@
             <Button text="Downloads" styleClass="btn-primary"/>
             <Button text="History" onAction="#openHistory" styleClass="btn-transparent"/>
             <Button text="Check Updates" onAction="#checkForUpdates" styleClass="btn-transparent"/>
+            <Button text="💡 Extension Guide" onAction="#showExtensionGuide" styleClass="btn-secondary" />
         </HBox>
     </bottom>
 </BorderPane>

@@ -719,4 +719,25 @@ public class MainController {
             }
         }).start();
     }
+
+    @FXML
+    private void showExtensionGuide() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Extension Installation Guide");
+        alert.setHeaderText("How to add the browser extension:");
+
+        // Ektu nicely formatted text jate user sohoje bujhte pare
+        String guideText = "1. Open Chrome or Edge and go to the extensions page:\n"
+                + "   - Chrome: chrome://extensions\n"
+                + "   - Edge: edge://extensions\n\n"
+                + "2. Turn ON 'Developer Mode' (usually at the top right).\n\n"
+                + "3. Click 'Load unpacked' (or 'Load extension').\n\n"
+                + "4. Select the 'extension' folder located inside this Download Manager's installation folder.\n\n"
+                + "5. Pin the extension to your browser toolbar and you are ready to go!";
+
+        alert.setContentText(guideText);
+
+        // Dialog ti shundor vabe show korbe
+        alert.showAndWait();
+    }
 }
