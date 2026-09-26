@@ -2,6 +2,7 @@ package com.downloadmanager;
 
 import com.downloadmanager.database.DownloadDAO;
 
+import com.downloadmanager.server.DownloadServer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
@@ -52,18 +53,11 @@ public class Main extends Application {
                     "/com.downloadmanager/icon.jpeg"
             );
 
-            System.out.println("ICON URL = " + iconUrl);
-
             if (iconUrl != null) {
                 javafx.scene.image.Image icon =
                         new javafx.scene.image.Image(
                                 iconUrl.toExternalForm()
                         );
-
-                System.out.println("ICON ERROR = " + icon.isError());
-                System.out.println("ICON WIDTH = " + icon.getWidth());
-                System.out.println("ICON HEIGHT = " + icon.getHeight());
-
                 stage.getIcons().add(icon);
             }
 
@@ -265,9 +259,10 @@ public class Main extends Application {
 
         DownloadDAO.pauseActiveDownloadsOnShutdown();
 
+        DownloadServer.stop();
+
         removeSystemTray();
 
-        // Release single-instance lock
         Launcher.closeInstanceLock();
 
         super.stop();

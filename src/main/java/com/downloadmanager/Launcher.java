@@ -13,7 +13,9 @@ public class Launcher {
 
     public static void main(String[] args) {
 
+        // Prevent multiple instances
         try {
+
             instanceLock = new ServerSocket(9999);
 
         } catch (IOException e) {
@@ -29,24 +31,31 @@ public class Launcher {
             return;
         }
 
+        // Initialize SQLite database and create tables
         Database.initializeDatabase();
 
+        // Release the instance lock when the application shuts down
         Runtime.getRuntime().addShutdownHook(
                 new Thread(() -> {
                     closeInstanceLock();
                 })
         );
 
+        // Start JavaFX application
         Application.launch(Main.class, args);
     }
 
     public static void closeInstanceLock() {
 
         if (instanceLock != null && !instanceLock.isClosed()) {
+
             try {
+
                 instanceLock.close();
                 instanceLock = null;
+
             } catch (IOException e) {
+
                 e.printStackTrace();
             }
         }

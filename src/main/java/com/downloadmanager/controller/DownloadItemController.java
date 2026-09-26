@@ -3,13 +3,9 @@ package com.downloadmanager.controller;
 import com.downloadmanager.database.DownloadDAO;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressBar;
+import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.VBox;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -34,11 +30,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
-
 public class DownloadItemController {
 
+    private Runnable removeAction;
+
+    public void setRemoveAction(Runnable removeAction) {
+        this.removeAction = removeAction;
+    }
     @FXML
     private Button deleteButton;
     @FXML
@@ -165,7 +163,8 @@ public class DownloadItemController {
 
     @FXML
     private void initialize() {
-
+        javafx.scene.control.Tooltip folderTooltip = new javafx.scene.control.Tooltip("Open containing folder");
+        javafx.scene.control.Tooltip.install(showFolderButton, folderTooltip);
         // Detect double click on download item
         downloadItem.setOnMouseClicked(event -> {
 
@@ -193,9 +192,48 @@ public class DownloadItemController {
     public void setDownloadInfo(String fileName, String url) {
 
         fileNameLabel.setText(fileName);
-        urlLabel.setText(url);
+        //urlLabel.setText(url);
+    }
+    @FXML
+    private void handleDelete() {
+        // Create custom confirmation alert with choices
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Delete Options");
+        alert.setHeaderText("How do you want to delete this download?");
+        alert.setContentText("Choose an option below:");
+
+        ButtonType btnDeleteFile = new ButtonType("Delete File & List");
+        ButtonType btnRemoveListOnly = new ButtonType("Remove from List Only");
+        ButtonType btnCancel = new ButtonType("Cancel", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        alert.getButtonTypes().setAll(btnDeleteFile, btnRemoveListOnly, btnCancel);
+
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent()) {
+            if (result.get() == btnDeleteFile) {
+                // 1. Call your existing robust method to delete file + .part chunks from disk
+                deleteFromFiles();
+                // 2. Remove from database and UI list
+                removeItemFromApp();
+
+            } else if (result.get() == btnRemoveListOnly) {
+                // 3. Keep file on disk, just remove from app/database
+                removeItemFromApp();
+            }
+        }
     }
 
+    // Helper method to remove item from database and UI ListView
+    private void removeItemFromApp() {
+        // Remove from database using databaseId
+        DownloadDAO.deleteDownload(databaseId);
+
+        // Remove from UI ListView using the callback action
+        if (removeAction != null) {
+            removeAction.run();
+        }
+    }
     private void deleteFromFiles() {
 
         // We only check if filePath is null, because the main file might not
@@ -515,17 +553,22 @@ public class DownloadItemController {
                         } catch (Exception ignored) {}
                     }
 
+                    // Get the actual real file name/title from the downloaded file path
+                    String realVideoTitle = (filePath != null) ? filePath.getFileName().toString() : "Unknown YouTube Video";
+
                     DownloadDAO.updateStatus(databaseId, "Completed");
+                    DownloadDAO.updateFileName(databaseId, realVideoTitle); // Database-e real name update korlo
 
                     Platform.runLater(() -> {
                         progressBar.setProgress(1.0);
                         percentageLabel.setText("Completed");
+                        percentageLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #22c55e;");
                         speedLabel.setText("Speed: Completed");
                         timeLabel.setText("Time remaining: 0s");
 
                         // Update the card title to the actual dynamically generated video/audio file name
                         if (filePath != null && Files.exists(filePath)) {
-                            fileNameLabel.setText(filePath.getFileName().toString());
+                            fileNameLabel.setText(realVideoTitle);
                         }
 
                         pauseButton.setDisable(true);
@@ -539,7 +582,7 @@ public class DownloadItemController {
                         // OS Desktop Notification
                         com.downloadmanager.Main.showNotification(
                                 "Download Complete",
-                                (filePath != null ? filePath.getFileName().toString() : "YouTube File") + " has finished downloading.",
+                                realVideoTitle + " has finished downloading.",
                                 java.awt.TrayIcon.MessageType.INFO
                         );
                     });
@@ -553,6 +596,7 @@ public class DownloadItemController {
                 DownloadDAO.updateStatus(databaseId, "Failed");
                 Platform.runLater(() -> {
                     percentageLabel.setText("Failed");
+                    percentageLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #ef4444;");
                     pauseButton.setDisable(true);
                     cancelButton.setDisable(true);
                     downloadAgainButton.setDisable(false);
@@ -584,7 +628,10 @@ public class DownloadItemController {
             }
         }
 
+
+        ExecutorService chunkExecutor = null;
         try {
+
             Files.createDirectories(downloadFolder);
             filePath = downloadFolder.resolve(fileName);
 
@@ -603,7 +650,7 @@ public class DownloadItemController {
             int connections = (totalSize > 1024 * 1024) ? 4 : 1;
             long chunkSize = totalSize > 0 ? (totalSize / connections) : -1;
 
-            ExecutorService chunkExecutor = java.util.concurrent.Executors.newFixedThreadPool(connections);
+            chunkExecutor = java.util.concurrent.Executors.newFixedThreadPool(connections);
             List<CompletableFuture<Void>> tasks = new ArrayList<>();
             AtomicLong totalDownloaded = new AtomicLong(0);
 
@@ -758,6 +805,7 @@ public class DownloadItemController {
             Platform.runLater(() -> {
                 progressBar.setProgress(1.0);
                 percentageLabel.setText("Completed");
+                percentageLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #22c55e;");
                 speedLabel.setText("Speed: " + formatSpeed(averageSpeed));
                 DownloadDAO.updateStatus(databaseId, "Completed");
                 pauseButton.setDisable(true);
@@ -767,8 +815,13 @@ public class DownloadItemController {
 
 
             });
+
         } catch (Exception e) {
             e.printStackTrace();
+            // FIX: Jodi error hoy, tahole ram e chola hidden background thread gulo ke force-stop kore dibe
+            if (chunkExecutor != null && !chunkExecutor.isShutdown()) {
+                chunkExecutor.shutdownNow();
+            }
             DownloadDAO.updateStatus(databaseId, "Failed");
             Platform.runLater(() -> {
                 percentageLabel.setText("Failed");
@@ -785,9 +838,6 @@ public class DownloadItemController {
             });
         }
     }
-    // ==========================================
-    // OPEN FILE
-    // ==========================================
 
     private void openFile() {
 
@@ -810,12 +860,6 @@ public class DownloadItemController {
             e.printStackTrace();
         }
     }
-
-
-    // ==========================================
-    // SHOW FILE IN FOLDER
-    // ==========================================
-
     @FXML
     private void showInFolder() {
         if (filePath == null || !Files.exists(filePath)) {
@@ -839,11 +883,6 @@ public class DownloadItemController {
         }
     }
 
-
-    // ==========================================
-    // PAUSE / RESUME
-    // ==========================================
-
     @FXML
     private void pauseDownload() {
         synchronized (this) {
@@ -852,6 +891,7 @@ public class DownloadItemController {
             if (paused) {
                 pauseButton.setText("Resume");
                 percentageLabel.setText("Paused");
+                percentageLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #f59e0b;");
             } else {
                 pauseButton.setText("Pause");
                 percentageLabel.setText("Resuming...");
@@ -869,11 +909,6 @@ public class DownloadItemController {
             }
         }
     }
-
-
-    // ==========================================
-    // CANCEL
-    // ==========================================
 
     @FXML
     private void cancelDownload() {
@@ -908,6 +943,7 @@ public class DownloadItemController {
                 }
 
                 percentageLabel.setText("Cancelled");
+                percentageLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #ef4444;");
                 deleteButton.setDisable(false);
                 downloadAgainButton.setDisable(false);
                 DownloadDAO.updateStatus(databaseId, "Cancelled");

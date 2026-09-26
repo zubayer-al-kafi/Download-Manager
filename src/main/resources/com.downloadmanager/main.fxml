@@ -70,7 +70,12 @@
             </HBox>
 
             <!-- DOWNLOAD LIST -->
-            <ListView fx:id="downloadList" VBox.vgrow="ALWAYS" styleClass="list-view"/>
+            <!-- DOWNLOAD LIST -->
+            <ListView fx:id="downloadList" VBox.vgrow="ALWAYS" styleClass="list-view">
+                <placeholder>
+                    <Label text="No active downloads. Paste a link or use the extension to start!" styleClass="text-muted" style="-fx-font-size: 14px;"/>
+                </placeholder>
+            </ListView>
         </VBox>
     </center>
 

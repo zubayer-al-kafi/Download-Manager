@@ -49,6 +49,10 @@
     -fx-padding: 18;
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 15, 0, 0, 6);
 }
+.card:hover {
+    -fx-border-color: #475569; /* Mouse hover korle border ektu bright hobe */
+    -fx-background-color: #243044; /* Background ektu soft lighter slate hobe */
+}
 
 /* ================= INPUTS ================= */
 .text-field {
@@ -137,7 +141,7 @@
     -fx-padding: 8 12 8 12;
 }
 
-/* ================= LIST VIEW ================= */
+/* ================= LIST VIEW & SCROLLBAR ================= */
 .list-view {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
@@ -150,7 +154,7 @@
     -fx-background-color: transparent;
 }
 .list-view .scroll-bar:vertical {
-    -fx-background-color: transparent;
+    -fx-background-color: #0f172a; /* Match root background */
 }
 .list-view .scroll-bar:vertical .thumb {
     -fx-background-color: #475569;
@@ -171,4 +175,12 @@
     -fx-background-color: #3b82f6;
     -fx-background-radius: 10;
     -fx-padding: 4px;
+}
+/*Scroll bar */
+.list-view .scroll-bar:vertical {
+    -fx-background-color: #18181b;
+}
+.list-view .scroll-bar:vertical .thumb {
+    -fx-background-color: #3f3f46;
+    -fx-background-radius: 4px;
 }

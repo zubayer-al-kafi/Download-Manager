@@ -34,7 +34,8 @@ import javafx.scene.control.Alert;
 import javafx.application.Platform;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.downloadmanager.server.DownloadServer;
+import com.downloadmanager.server.DownloadServer;
 public class MainController {
     private String lastClipboardContent = "";
     @FXML
@@ -114,6 +115,11 @@ public class MainController {
     // --------------------------------------------------
     // INITIALIZE
     // --------------------------------------------------
+
+    public Path getDownloadLocation() {
+        return downloadLocation;
+    }
+
     @FXML
     private void initialize() {
 
@@ -162,7 +168,7 @@ public class MainController {
         );
         loadSavedActiveDownloads();
         setupClipboardMonitoring();
-        ExtensionServer.start(this);
+        DownloadServer.start(this);
         // ==========================================
         // LAYOUT RESPONSIVENESS (INSTRUCTOR REQUIREMENT)
         // ==========================================
@@ -216,10 +222,6 @@ public class MainController {
 
         historyStage.show();
     }
-
-    // --------------------------------------------------
-    // CHOOSE DOWNLOAD LOCATION
-    // --------------------------------------------------
 
     @FXML
     private void chooseLocation() {
@@ -276,14 +278,6 @@ public class MainController {
 
     private final Preferences preferences =
             Preferences.userNodeForPackage(MainController.class);
-
-    // --------------------------------------------------
-    // ADD DOWNLOAD
-    // --------------------------------------------------
-
-    // --------------------------------------------------
-    // ADD DOWNLOAD
-    // --------------------------------------------------
 
     @FXML
     private void addDownload() {
@@ -459,8 +453,7 @@ public class MainController {
                     loader.load();
 
             // Get controller
-            DownloadItemController controller =
-                    loader.getController();
+            DownloadItemController controller = loader.getController();
 
             // Pass selected YouTube quality
             controller.setSelectedQuality(
@@ -520,15 +513,13 @@ public class MainController {
             // ADD TO LIST
             // ==========================================
 
-            downloadList
-                    .getItems()
-                    .add(downloadItem);
+            downloadList.getItems().add(0,downloadItem);
 
             // ==========================================
             // REMOVE FROM LIST CALLBACK
             // ==========================================
 
-            controller.setRemoveFromListAction(
+            controller.setRemoveAction(
                     () -> downloadList
                             .getItems()
                             .remove(downloadItem)
@@ -574,10 +565,6 @@ public class MainController {
     }
 
 
-    // --------------------------------------------------
-    // GET FILE NAME
-    // --------------------------------------------------
-
     private String getFileName(String url) {
 
         try {
@@ -616,7 +603,7 @@ public class MainController {
 
                     controller.setDownloadInfo(fileName, url);
                     controller.setDatabaseId(id);
-
+                    controller.setRemoveAction(() -> downloadList.getItems().remove(downloadItem));
                     // Set up actions
                     controller.setRemoveFromListAction(() -> downloadList.getItems().remove(downloadItem));
                     controller.setDownloadAgainAction(() -> {
@@ -629,7 +616,7 @@ public class MainController {
                     // Pass the url variable as the second argument
                     controller.restoreAsPaused(downloadLocation, url);
 
-                    downloadList.getItems().add(downloadItem);
+                    downloadList.getItems().add(0,downloadItem);
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -640,18 +627,29 @@ public class MainController {
         }
     }
     public void receiveUrlFromExtension(String url) {
-        // Bring the window to the front if it's minimized
-        javafx.stage.Stage stage = (javafx.stage.Stage) urlField.getScene().getWindow();
-        if (stage.isIconified()) stage.setIconified(false);
-        stage.toFront();
+        javafx.application.Platform.runLater(() -> {
+            javafx.stage.Stage stage = (javafx.stage.Stage) urlField.getScene().getWindow();
+            if (stage != null) {
+                if (!stage.isShowing()) {
+                    stage.show();
+                }
+                if (stage.isIconified()) {
+                    stage.setIconified(false);
+                }
 
-        // Put the URL in the box and trigger the download method!
-        urlField.setText(url);
-        addDownload();
+                stage.toFront();
+                stage.requestFocus();
+
+                // Chrome-er opor force-fully focus anar jonno eita korben:
+                stage.setAlwaysOnTop(true);
+                stage.setAlwaysOnTop(false);
+            }
+
+            urlField.setText(url);
+            addDownload();
+        });
     }
-    // ==========================================
-    // NETWORKING & JSON PARSING (INSTRUCTOR REQUIREMENT)
-    // ==========================================
+
     @FXML
     private void checkForUpdates() {
         // Run on a background thread so the UI doesn't freeze while waiting for the internet!
@@ -662,6 +660,7 @@ public class MainController {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create("https://api.github.com/repos/zubayer-al-kafi/Download-Manager/releases/latest"))
                         .header("Accept", "application/vnd.github.v3+json")
+                        .header("User-Agent", "Download-Manager-App") // <-- CRITICAL FIX: Prevents GitHub 403 Forbidden Error
                         .build();
 
 
@@ -669,16 +668,18 @@ public class MainController {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
                 System.out.println("HTTP Status: " + response.statusCode());
                 System.out.println("GitHub Response: " + response.body());
+
                 if (response.statusCode() == 403) {
                     javafx.application.Platform.runLater(() -> {
-                        // JavaFX alert use korte paren, ba JOptionPane
-                        javax.swing.JOptionPane.showMessageDialog(null,
-                                "GitHub API rate limit exceeded. Please try checking for updates after an hour.",
-                                "Rate Limit Exceeded",
-                                javax.swing.JOptionPane.WARNING_MESSAGE);
+                        Alert alert = new Alert(Alert.AlertType.WARNING);
+                        alert.setTitle("Rate Limit Exceeded");
+                        alert.setHeaderText("GitHub API rate limit exceeded.");
+                        alert.setContentText("Please try checking for updates after an hour.");
+                        alert.showAndWait();
                     });
                     return;
                 }
+
                 if (response.statusCode() == 200) {
 
                     // 3. PARSE THE JSON USING JACKSON

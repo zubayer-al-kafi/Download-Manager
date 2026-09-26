@@ -4,34 +4,41 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox fx:id="downloadItem"
       xmlns:fx="http://javafx.com/fxml/1"
       xmlns="http://javafx.com/javafx/26"
       fx:controller="com.downloadmanager.controller.DownloadItemController"
-      spacing="12"
+      spacing="6"
       styleClass="card"
-      stylesheets="@style.css">
+      stylesheets="@style.css"
+      style="-fx-padding: 10 14 10 14;">
 
+    <!-- TOP ROW: File Name & Percentage -->
     <HBox spacing="10" alignment="CENTER_LEFT">
-        <Label fx:id="fileNameLabel" text="example.zip" HBox.hgrow="ALWAYS" styleClass="item-title"/>
-        <Label fx:id="percentageLabel" text="0%" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #3b82f6;"/>
+        <Label fx:id="fileNameLabel" text="example.zip" HBox.hgrow="ALWAYS" styleClass="item-title" style="-fx-font-size: 14px;"/>
+        <Pane HBox.hgrow="ALWAYS"/>
+        <Label fx:id="percentageLabel" text="0%" style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #3b82f6;"/>
     </HBox>
 
-    <Label fx:id="urlLabel" text="https://example.com/example.zip" maxWidth="Infinity" styleClass="text-muted"/>
+    <!-- MIDDLE ROW: Progress Bar -->
+    <ProgressBar fx:id="progressBar" progress="0" maxWidth="Infinity" prefHeight="6" styleClass="progress-bar"/>
 
-    <ProgressBar fx:id="progressBar" progress="0" maxWidth="Infinity" styleClass="progress-bar"/>
+    <!-- BOTTOM ROW: Speed, Time & Action Buttons All in One Compact Line -->
+    <HBox spacing="12" alignment="CENTER_LEFT">
+        <Label fx:id="speedLabel" text="Speed: 0 KB/s" styleClass="text-muted" style="-fx-font-size: 11px;"/>
+        <Label fx:id="timeLabel" text="ETA: --" styleClass="text-muted" style="-fx-font-size: 11px;"/>
 
-    <HBox spacing="20" alignment="CENTER_LEFT">
-        <Label fx:id="speedLabel" text="Speed: 0 KB/s" styleClass="text-muted"/>
-        <Label fx:id="timeLabel" text="Time remaining: --" styleClass="text-muted"/>
-    </HBox>
+        <!-- Spacer to push buttons to the right -->
+        <Pane HBox.hgrow="ALWAYS"/>
 
-    <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 4 0 0 0;">
+        <!-- Action Buttons (Compact) -->
         <Button fx:id="showFolderButton" text="📁" onAction="#showInFolder" disable="true" styleClass="btn-secondary, btn-icon"/>
-        <Button fx:id="deleteButton" text="Delete" onAction="#showDeleteMenu" disable="true" styleClass="btn-secondary"/>
-        <Button fx:id="downloadAgainButton" text="Download Again" onAction="#downloadAgain" disable="true" styleClass="btn-secondary" style="-fx-text-fill: #3b82f6;"/>
+        <Button fx:id="deleteButton" text="Delete" onAction="#handleDelete" disable="true" styleClass="btn-secondary"/>
+
+        <Button fx:id="downloadAgainButton" text="Retry" onAction="#downloadAgain" disable="true" styleClass="btn-secondary" style="-fx-text-fill: #3b82f6;"/>
         <Button fx:id="pauseButton" text="Pause" onAction="#pauseDownload" styleClass="btn-secondary"/>
         <Button fx:id="cancelButton" text="Cancel" onAction="#cancelDownload" styleClass="btn-danger-outline"/>
     </HBox>

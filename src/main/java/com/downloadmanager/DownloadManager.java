@@ -13,13 +13,16 @@ public class DownloadManager implements DownloadEngine {
 
     private final ExecutorService executorService;
 
-
     public DownloadManager() {
-
-        executorService =
-                Executors.newFixedThreadPool(
-                        MAX_DOWNLOADS
-                );
+        // Advanced Concurrency: Use a ThreadFactory to create Daemon threads
+        // This ensures background downloads don't keep the app alive as a ghost
+        // process if the user forcefully closes the main window.
+        executorService = Executors.newFixedThreadPool(MAX_DOWNLOADS, runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            thread.setName("Download-Worker-Thread");
+            return thread;
+        });
     }
 
     @Override
@@ -30,19 +33,17 @@ public class DownloadManager implements DownloadEngine {
             Path downloadFolder) {
 
         executorService.submit(() -> {
-
             controller.download(
                     fileName,
                     url,
                     downloadFolder
             );
-
         });
     }
 
-
     public void shutdown() {
-
-        executorService.shutdown();
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdownNow(); // Forcefully stops active threads on exit
+        }
     }
 }
