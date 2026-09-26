@@ -1,34 +1,54 @@
 package com.downloadmanager;
-import java.net.ServerSocket;
+
+import com.downloadmanager.database.Database;
+import javafx.application.Application;
+
 import javax.swing.JOptionPane;
-import javafx.application.Application; // Make sure your existing imports stay
+import java.io.IOException;
+import java.net.ServerSocket;
 
-public class Launcher { // (Use your actual class name here)
+public class Launcher {
 
-    // We keep a reference to the ServerSocket so it stays open as long as the app is running
     private static ServerSocket instanceLock;
 
     public static void main(String[] args) {
 
-        // ==========================================
-        // SINGLE INSTANCE LOCK
-        // ==========================================
         try {
-            // Try to claim port 9999.
             instanceLock = new ServerSocket(9999);
-        } catch (Exception e) {
-            // If it fails, it means another instance is already holding port 9999!
-            // Show a quick warning message and kill this duplicate instance immediately.
-            JOptionPane.showMessageDialog(null,
-                    "Download Manager is already running!\nPlease check your System Tray (bottom right corner).",
-                    "Already Running",
-                    JOptionPane.WARNING_MESSAGE);
-            System.exit(0);
+
+        } catch (IOException e) {
+
+            JOptionPane.showMessageDialog(
+                    null,
+                    "Download Manager is already running!\n\n"
+                            + "Please check your System Tray.",
+                    "Download Manager",
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            return;
         }
 
-        // If we successfully claimed the port, this is the first instance.
-        // Proceed to launch the JavaFX application normally!
+        Database.initializeDatabase();
 
-        Application.launch(Main.class, args); // Use your actual Application class here
+        Runtime.getRuntime().addShutdownHook(
+                new Thread(() -> {
+                    closeInstanceLock();
+                })
+        );
+
+        Application.launch(Main.class, args);
+    }
+
+    public static void closeInstanceLock() {
+
+        if (instanceLock != null && !instanceLock.isClosed()) {
+            try {
+                instanceLock.close();
+                instanceLock = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.downloadmanager;
 
-import com.downloadmanager.database.Database;
 import com.downloadmanager.database.DownloadDAO;
 
 import javafx.application.Application;
@@ -16,82 +15,130 @@ import java.io.IOException;
 import java.net.URL;
 
 public class Main extends Application {
-    private boolean isTrayAdded = false;
 
-    // Keep a static reference so other controllers can trigger notifications
     private static TrayIcon activeTrayIcon;
 
     public static void showNotification(String title, String message, TrayIcon.MessageType type) {
         if (activeTrayIcon != null) {
-            // Hand the notification task over to the AWT Event Dispatch Thread
-            java.awt.EventQueue.invokeLater(() -> {
-                activeTrayIcon.displayMessage(title, message, type);
-            });
+            EventQueue.invokeLater(() ->
+                    activeTrayIcon.displayMessage(
+                            title,
+                            message,
+                            type
+                    )
+            );
         }
     }
+
     @Override
     public void start(Stage stage) throws Exception {
 
-        // 1. Prevent JavaFX from closing when the window is hidden
         Platform.setImplicitExit(false);
 
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com.downloadmanager/main.fxml"));
+        FXMLLoader loader = new FXMLLoader(
+                getClass().getResource(
+                        "/com.downloadmanager/main.fxml"
+                )
+        );
+
         Scene scene = new Scene(loader.load());
 
         stage.setTitle("Download Manager");
         stage.setScene(scene);
 
-        // ==========================================
-        // SET MAIN WINDOW ICON (JavaFX Image)
-        // ==========================================
         try {
-            stage.getIcons().add(
-                    new javafx.scene.image.Image(getClass().getResourceAsStream("/com.downloadmanager/icon.jpg"))
+
+            URL iconUrl = getClass().getResource(
+                    "/com.downloadmanager/icon.jpeg"
             );
+
+            System.out.println("ICON URL = " + iconUrl);
+
+            if (iconUrl != null) {
+                javafx.scene.image.Image icon =
+                        new javafx.scene.image.Image(
+                                iconUrl.toExternalForm()
+                        );
+
+                System.out.println("ICON ERROR = " + icon.isError());
+                System.out.println("ICON WIDTH = " + icon.getWidth());
+                System.out.println("ICON HEIGHT = " + icon.getHeight());
+
+                stage.getIcons().add(icon);
+            }
+
         } catch (Exception e) {
-            System.out.println("Window icon not found, using default.");
+            e.printStackTrace();
         }
 
-        // 2. Override the close button (X) to hide the window instead
         stage.setOnCloseRequest(event -> {
-            stage.hide();
+
             event.consume();
+
+            stage.hide();
         });
 
-        // 3. Initialize the System Tray
-        setupSystemTray(stage);
-
         stage.show();
+        try {
+            setupSystemTray(stage);
+        } catch (Exception e) {
+            System.err.println(
+                    "System tray initialization failed."
+            );
+
+            e.printStackTrace();
+        }
     }
 
     private void setupSystemTray(Stage stage) {
 
-        // EARLY EXIT: If the tray icon is already added, do nothing!
-        if (isTrayAdded) {
+        if (activeTrayIcon != null) {
             return;
         }
 
         if (!SystemTray.isSupported()) {
-            System.out.println("System tray is not supported on this OS.");
-            Platform.setImplicitExit(true);
             return;
         }
 
         SystemTray tray = SystemTray.getSystemTray();
+
         PopupMenu trayMenu = new PopupMenu();
 
-        MenuItem showItem = new MenuItem("Show Download Manager");
-        MenuItem exitItem = new MenuItem("Exit");
+        MenuItem showItem =
+                new MenuItem("Show Download Manager");
 
-        showItem.addActionListener(e -> Platform.runLater(() -> {
-            stage.show();
-            stage.setIconified(false);
-            stage.toFront();
-        }));
+        MenuItem exitItem =
+                new MenuItem("Exit");
+
+        // ==========================================
+        // SHOW APPLICATION
+        // ==========================================
+
+        showItem.addActionListener(e ->
+                Platform.runLater(() -> {
+
+                    if (!stage.isShowing()) {
+                        stage.show();
+                    }
+
+                    stage.setIconified(false);
+                    stage.toFront();
+                    stage.requestFocus();
+                })
+        );
+
+        // ==========================================
+        // EXIT APPLICATION
+        // ==========================================
 
         exitItem.addActionListener(e -> {
-            Platform.exit();
-            System.exit(0);
+
+            removeSystemTray();
+
+            Platform.runLater(() -> {
+
+                Platform.exit();
+            });
         });
 
         trayMenu.add(showItem);
@@ -99,53 +146,130 @@ public class Main extends Application {
         trayMenu.add(exitItem);
 
         // ==========================================
-        // SET SYSTEM TRAY ICON (AWT Image)
+        // LOAD TRAY ICON
         // ==========================================
-        java.awt.Image trayImage = null;
+
+        java.awt.Image trayImage = loadTrayIcon();
+
+        // ==========================================
+        // CREATE TRAY ICON
+        // ==========================================
+
+        activeTrayIcon = new TrayIcon(
+                trayImage,
+                "Download Manager",
+                trayMenu
+        );
+
+        activeTrayIcon.setImageAutoSize(true);
+
+        // ==========================================
+        // CLICK TRAY ICON
+        // ==========================================
+
+        activeTrayIcon.addActionListener(e ->
+                Platform.runLater(() -> {
+
+                    if (!stage.isShowing()) {
+                        stage.show();
+                    }
+
+                    stage.setIconified(false);
+                    stage.toFront();
+                    stage.requestFocus();
+                })
+        );
+
+        // ==========================================
+        // ADD ICON TO SYSTEM TRAY
+        // ==========================================
+
         try {
-            URL iconURL = getClass().getResource("/com.downloadmanager/icon.jpg");
-            if (iconURL != null) {
-                trayImage = ImageIO.read(iconURL);
-            } else {
-                // Fallback to the blue square if icon.jpg is missing
-                BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D g2d = image.createGraphics();
-                g2d.setColor(Color.BLUE);
-                g2d.fillRect(0, 0, 16, 16);
-                g2d.dispose();
-                trayImage = image;
+
+            tray.add(activeTrayIcon);
+
+        } catch (AWTException e) {
+
+            e.printStackTrace();
+
+            activeTrayIcon = null;
+        }
+    }
+
+    private java.awt.Image loadTrayIcon() {
+
+        try {
+
+            URL iconUrl = getClass().getResource(
+                    "/com.downloadmanager/icon.jpeg"
+            );
+
+            if (iconUrl != null) {
+
+                java.awt.Image image =
+                        ImageIO.read(iconUrl);
+
+                if (image != null) {
+                    return image;
+                }
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        activeTrayIcon = new TrayIcon(trayImage, "Download Manager", trayMenu);
-        activeTrayIcon.setImageAutoSize(true);
+        // Fallback icon
+        return createFallbackTrayIcon();
+    }
 
-        activeTrayIcon.addActionListener(e -> Platform.runLater(() -> {
-            stage.show();
-            stage.setIconified(false);
-            stage.toFront();
-        }));
+    private java.awt.Image createFallbackTrayIcon() {
+
+        BufferedImage image = new BufferedImage(
+                16,
+                16,
+                BufferedImage.TYPE_INT_ARGB
+        );
+
+        Graphics2D g2d = image.createGraphics();
+
+        g2d.setColor(Color.BLUE);
+        g2d.fillRect(0, 0, 16, 16);
+
+        g2d.dispose();
+
+        return image;
+    }
+
+    private void removeSystemTray() {
+
+        if (activeTrayIcon == null) {
+            return;
+        }
 
         try {
-            tray.add(activeTrayIcon);
-            // SET THE FLAG TO TRUE SO IT NEVER ADDS DUPLICATES AGAIN
-            isTrayAdded = true;
-        } catch (AWTException e) {
+
+            SystemTray tray =
+                    SystemTray.getSystemTray();
+
+            tray.remove(activeTrayIcon);
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
+
+        activeTrayIcon = null;
     }
 
     @Override
     public void stop() throws Exception {
-        // Automatically mark any "Downloading" items as "Paused" in the database
-        DownloadDAO.pauseActiveDownloadsOnShutdown();
-        super.stop();
-    }
 
-    public static void main(String[] args) {
-        Database.initializeDatabase();
-        launch();
+        DownloadDAO.pauseActiveDownloadsOnShutdown();
+
+        removeSystemTray();
+
+        // Release single-instance lock
+        Launcher.closeInstanceLock();
+
+        super.stop();
     }
 }

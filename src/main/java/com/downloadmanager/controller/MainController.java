@@ -664,9 +664,21 @@ public class MainController {
                         .header("Accept", "application/vnd.github.v3+json")
                         .build();
 
+
                 // 2. Send request and get response
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
+                System.out.println("HTTP Status: " + response.statusCode());
+                System.out.println("GitHub Response: " + response.body());
+                if (response.statusCode() == 403) {
+                    javafx.application.Platform.runLater(() -> {
+                        // JavaFX alert use korte paren, ba JOptionPane
+                        javax.swing.JOptionPane.showMessageDialog(null,
+                                "GitHub API rate limit exceeded. Please try checking for updates after an hour.",
+                                "Rate Limit Exceeded",
+                                javax.swing.JOptionPane.WARNING_MESSAGE);
+                    });
+                    return;
+                }
                 if (response.statusCode() == 200) {
 
                     // 3. PARSE THE JSON USING JACKSON
