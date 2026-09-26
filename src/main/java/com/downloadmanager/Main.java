@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.net.URL;
 
 public class Main extends Application {
+    private boolean isTrayAdded = false;
 
     // Keep a static reference so other controllers can trigger notifications
     private static TrayIcon activeTrayIcon;
@@ -65,6 +66,11 @@ public class Main extends Application {
 
     private void setupSystemTray(Stage stage) {
 
+        // EARLY EXIT: If the tray icon is already added, do nothing!
+        if (isTrayAdded) {
+            return;
+        }
+
         if (!SystemTray.isSupported()) {
             System.out.println("System tray is not supported on this OS.");
             Platform.setImplicitExit(true);
@@ -79,6 +85,7 @@ public class Main extends Application {
 
         showItem.addActionListener(e -> Platform.runLater(() -> {
             stage.show();
+            stage.setIconified(false);
             stage.toFront();
         }));
 
@@ -100,7 +107,7 @@ public class Main extends Application {
             if (iconURL != null) {
                 trayImage = ImageIO.read(iconURL);
             } else {
-                // Fallback to the blue square if icon.png is missing
+                // Fallback to the blue square if icon.jpg is missing
                 BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D g2d = image.createGraphics();
                 g2d.setColor(Color.BLUE);
@@ -117,11 +124,14 @@ public class Main extends Application {
 
         activeTrayIcon.addActionListener(e -> Platform.runLater(() -> {
             stage.show();
+            stage.setIconified(false);
             stage.toFront();
         }));
 
         try {
             tray.add(activeTrayIcon);
+            // SET THE FLAG TO TRUE SO IT NEVER ADDS DUPLICATES AGAIN
+            isTrayAdded = true;
         } catch (AWTException e) {
             e.printStackTrace();
         }

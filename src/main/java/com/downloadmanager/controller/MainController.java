@@ -36,21 +36,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class MainController {
-
     private String lastClipboardContent = "";
     @FXML
     private TextField urlField;
-
     @FXML
     private ListView<Node> downloadList;
-
     @FXML
     private Label locationLabel;
-
-
     private final DownloadManager downloadManager =
             new DownloadManager();
-
     private void setupClipboardMonitoring() {
         Timeline clipboardTimeline = new Timeline(
                 new KeyFrame(Duration.seconds(1), event -> {
@@ -82,7 +76,6 @@ public class MainController {
         clipboardTimeline.setCycleCount(Timeline.INDEFINITE);
         clipboardTimeline.play();
     }
-
     private boolean isDownloadableFile(String url) {
         // A list of common file extensions to monitor for, PLUS youtube links
         if (url.contains("youtube.com/watch") || url.contains("youtu.be/")) {
@@ -91,11 +84,8 @@ public class MainController {
         String fileRegex = "(?i).*\\.(zip|rar|7z|exe|msi|mp4|mkv|avi|pdf|iso|jpg|jpeg|png|mp3|dat)$";
         return url.matches(fileRegex);
     }
-
     // Default download location
     private Path downloadLocation;
-
-
     public void showMainScreen() {
 
         try {
@@ -124,7 +114,6 @@ public class MainController {
     // --------------------------------------------------
     // INITIALIZE
     // --------------------------------------------------
-
     @FXML
     private void initialize() {
 
