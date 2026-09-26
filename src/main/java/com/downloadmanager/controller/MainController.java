@@ -26,6 +26,14 @@ import javafx.scene.input.Clipboard;
 import javafx.util.Duration;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import javafx.scene.control.Alert;
+import javafx.application.Platform;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class MainController {
 
@@ -165,6 +173,27 @@ public class MainController {
         );
         loadSavedActiveDownloads();
         setupClipboardMonitoring();
+        ExtensionServer.start(this);
+        // ==========================================
+        // LAYOUT RESPONSIVENESS (INSTRUCTOR REQUIREMENT)
+        // ==========================================
+        // We must wait for the UI to be attached to the Scene/Window before binding
+        downloadList.sceneProperty().addListener((observableScene, oldScene, newScene) -> {
+            if (newScene != null) {
+                newScene.windowProperty().addListener((observableWindow, oldWindow, newWindow) -> {
+                    if (newWindow != null) {
+
+                        // 1. Bind the URL text field to always be exactly 60% of the window's width
+                        urlField.prefWidthProperty().bind(newWindow.widthProperty().multiply(0.6));
+
+                        // 2. Bind the ListView height to dynamically scale with the window height
+                        // (Subtracting 250px to leave room for the top cards and bottom bar)
+                        downloadList.prefHeightProperty().bind(newWindow.heightProperty().subtract(250));
+
+                    }
+                });
+            }
+        });
     }
 
     @FXML
@@ -621,5 +650,71 @@ public class MainController {
             e.printStackTrace();
         }
     }
+    public void receiveUrlFromExtension(String url) {
+        // Bring the window to the front if it's minimized
+        javafx.stage.Stage stage = (javafx.stage.Stage) urlField.getScene().getWindow();
+        if (stage.isIconified()) stage.setIconified(false);
+        stage.toFront();
 
+        // Put the URL in the box and trigger the download method!
+        urlField.setText(url);
+        addDownload();
+    }
+    // ==========================================
+    // NETWORKING & JSON PARSING (INSTRUCTOR REQUIREMENT)
+    // ==========================================
+    @FXML
+    private void checkForUpdates() {
+        // Run on a background thread so the UI doesn't freeze while waiting for the internet!
+        new Thread(() -> {
+            try {
+                // 1. Create the HTTP Client and Request
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("https://api.github.com/repos/zubayer-al-kafi/Download-Manager/releases/latest"))
+                        .header("Accept", "application/vnd.github.v3+json")
+                        .build();
+
+                // 2. Send request and get response
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() == 200) {
+
+                    // 3. PARSE THE JSON USING JACKSON
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode jsonNode = mapper.readTree(response.body());
+
+                    // Use .asText() to safely extract the string values from the JSON tree
+                    String latestVersion = jsonNode.get("tag_name").asText("Unknown Version");
+                    String releaseNotes = jsonNode.get("name").asText("No release notes");
+
+                    // 4. Update UI on the JavaFX Thread
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("Update Checker");
+                        alert.setHeaderText("Latest Version on GitHub: " + latestVersion);
+                        alert.setContentText("Release Name: " + releaseNotes + "\n\nYou are running the latest version!");
+                        alert.showAndWait();
+                    });
+
+                } else {
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.WARNING);
+                        alert.setTitle("Update Checker");
+                        alert.setHeaderText("No Releases Found");
+                        alert.setContentText("Create a Release tag on your GitHub repository to see this work!");
+                        alert.showAndWait();
+                    });
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Network Error");
+                    alert.setHeaderText("Could not connect to GitHub API");
+                    alert.setContentText(e.getMessage());
+                    alert.showAndWait();
+                });
+            }
+        }).start();
+    }
 }

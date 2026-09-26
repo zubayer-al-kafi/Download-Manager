@@ -1,12 +1,13 @@
 package com.downloadmanager;
 
 import com.downloadmanager.controller.DownloadItemController;
+import com.downloadmanager.interfaces.DownloadEngine;
 
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class DownloadManager {
+public class DownloadManager implements DownloadEngine {
 
     private static final int MAX_DOWNLOADS = 3;
 
@@ -21,7 +22,7 @@ public class DownloadManager {
                 );
     }
 
-
+    @Override
     public void startDownload(
             DownloadItemController controller,
             String fileName,

@@ -78,6 +78,7 @@
         <HBox spacing="10" alignment="CENTER" styleClass="bottom-bar">
             <Button text="Downloads" styleClass="btn-primary"/>
             <Button text="History" onAction="#openHistory" styleClass="btn-transparent"/>
+            <Button text="Check Updates" onAction="#checkForUpdates" styleClass="btn-transparent"/>
         </HBox>
     </bottom>
 </BorderPane>

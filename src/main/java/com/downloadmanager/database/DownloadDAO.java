@@ -11,54 +11,29 @@ public class DownloadDAO {
     // Make database writes happen one at a time
     private static final Object DB_LOCK = new Object();
 
-    public static int addDownload(
-            String fileName,
-            String url,
-            String filePath,
-            String status) {
+    // Example of how the insert should look now:
+    public static int addDownload(String fileName, String url, String filePath, String status) {
+        // Notice we added category_id to the query
+        String sql = "INSERT INTO downloads (file_name, url, file_path, status, category_id) VALUES (?, ?, ?, ?, ?)";
 
-        synchronized (DB_LOCK) {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection("jdbc:sqlite:downloads.db");
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
 
-            String sql = """
-                    INSERT INTO downloads
-                    (file_name, url, file_path, status)
-                    VALUES (?, ?, ?, ?)
-                    """;
+            pstmt.setString(1, fileName);
+            pstmt.setString(2, url);
+            pstmt.setString(3, filePath);
+            pstmt.setString(4, status);
+            pstmt.setInt(5, 5); // Default to 'General' category (ID 5)
 
-            try (
-                    Connection connection =
-                            Database.connect();
+            pstmt.executeUpdate();
 
-                    PreparedStatement statement =
-                            connection.prepareStatement(
-                                    sql,
-                                    Statement.RETURN_GENERATED_KEYS
-                            )
-            ) {
-
-                statement.setString(1, fileName);
-                statement.setString(2, url);
-                statement.setString(3, filePath);
-                statement.setString(4, status);
-
-                statement.executeUpdate();
-
-                try (
-                        ResultSet keys =
-                                statement.getGeneratedKeys()
-                ) {
-
-                    if (keys.next()) {
-                        return keys.getInt(1);
-                    }
-                }
-
-            } catch (SQLException e) {
-                e.printStackTrace();
+            try (java.sql.ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) return rs.getInt(1);
             }
-
-            return -1;
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
         }
+        return -1;
     }
 
     public static void updateStatus(

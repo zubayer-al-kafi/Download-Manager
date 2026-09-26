@@ -28,32 +28,42 @@ public class Database {
     }
 
     public static void initializeDatabase() {
+        String url = "jdbc:sqlite:downloads.db"; // Make sure this matches your DB name
 
-        String sql = """
-                CREATE TABLE IF NOT EXISTS downloads (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    file_name TEXT NOT NULL,
-                    url TEXT NOT NULL,
-                    file_path TEXT,
-                    status TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-                """;
+        // 1. Create Categories Table
+        String createCategoriesTable = "CREATE TABLE IF NOT EXISTS categories ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "name TEXT UNIQUE NOT NULL"
+                + ");";
 
-        try (
-                Connection connection = connect();
-                Statement statement =
-                        connection.createStatement()
-        ) {
+        // 2. Create Downloads Table with a FOREIGN KEY relationship
+        String createDownloadsTable = "CREATE TABLE IF NOT EXISTS downloads ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "file_name TEXT,"
+                + "url TEXT,"
+                + "file_path TEXT,"
+                + "status TEXT,"
+                + "category_id INTEGER,"
+                + "FOREIGN KEY(category_id) REFERENCES categories(id)"
+                + ");";
 
-            statement.execute(sql);
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url);
+             java.sql.Statement stmt = conn.createStatement()) {
 
-            System.out.println(
-                    "Database initialized successfully."
-            );
+            // Enable Foreign Key support in SQLite
+            stmt.execute("PRAGMA foreign_keys = ON;");
 
-        } catch (SQLException e) {
-            e.printStackTrace();
+            // Execute table creation
+            stmt.execute(createCategoriesTable);
+            stmt.execute(createDownloadsTable);
+
+            // 3. Insert default categories if they don't exist yet
+            String insertCategories = "INSERT OR IGNORE INTO categories (name) VALUES "
+                    + "('Video'), ('Audio'), ('Compressed'), ('Documents'), ('General');";
+            stmt.execute(insertCategories);
+
+        } catch (java.sql.SQLException e) {
+            System.out.println("Database initialization error: " + e.getMessage());
         }
     }
 }
