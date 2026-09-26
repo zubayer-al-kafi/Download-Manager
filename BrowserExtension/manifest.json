@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+
+  "name": "Download Manager Extension",
+
+  "version": "1.0.0",
+
+  "description": "Send browser downloads to the Download Manager.",
+
+  "permissions": [
+    "downloads",
+    "storage",
+    "notifications",
+    "contextMenus"
+  ],
+
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
